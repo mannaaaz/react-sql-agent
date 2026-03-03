@@ -1,0 +1,16 @@
+# Environment
+.env
+.venv/
+__pycache__/
+
+# Python
+*.pyc
+
+# Streamlit
+.streamlit/
+
+# Mac
+.DS_Store
+
+# Database (optional)
+*.db
