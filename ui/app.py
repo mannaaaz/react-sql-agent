@@ -94,9 +94,30 @@ if st.button("Run Query") and question:
     st.session_state["history"].append(question)
 
     if "error" in result:
-        st.error(result["error"])
+
+        # Clean user-facing message
+        st.error("Query execution failed.")
+
+        # Show specific error summary
+        st.warning(result["error"])
+
+        # Expandable technical details
+        with st.expander("🔎 Technical Details"):
+
+            if "failed_sql" in result:
+                st.markdown("**Failed SQL:**")
+                st.code(result["failed_sql"], language="sql")
+
+            if "details" in result:
+                st.markdown("**Database Error:**")
+                st.write(result["details"])
+
+            if "raw_output" in result:
+                st.markdown("**Raw Output:**")
+                st.write(result["raw_output"])
 
     else:
+        
         # -------------------
         # Generated SQL
         # -------------------
@@ -115,11 +136,11 @@ if st.button("Run Query") and question:
         # CSV Download
         csv = df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="Download CSV",
-            data=csv,
-            file_name="query_result.csv",
-            mime="text/csv"
-        )
+                label="Download CSV",
+                data=csv,
+                file_name="query_result.csv",
+                mime="text/csv"
+            )
 
         # -------------------
         # Intelligent Chart Logic
@@ -129,17 +150,12 @@ if st.button("Run Query") and question:
         numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
         non_numeric_cols = df.select_dtypes(exclude=["number"]).columns.tolist()
 
-        # Case 1: 1 categorical + 1 numeric → Bar chart
         if len(numeric_cols) == 1 and len(non_numeric_cols) == 1:
-            st.bar_chart(
-                df.set_index(non_numeric_cols[0])[numeric_cols[0]]
-            )
+            st.bar_chart(df.set_index(non_numeric_cols[0])[numeric_cols[0]])
 
-        # Case 2: Only numeric columns → Line chart
         elif len(numeric_cols) >= 1 and len(non_numeric_cols) == 0:
             st.line_chart(df[numeric_cols])
 
-        # Case 3: More complex → No auto chart
         else:
             st.info("No automatic chart available for this query structure.")
 
@@ -149,9 +165,6 @@ if st.button("Run Query") and question:
         st.subheader("🧠 Explanation")
         st.write(result["explanation"])
 
-        # -------------------
-        # Show Reasoning (if enabled)
-        # -------------------
         if show_reasoning:
             st.subheader("🔍 Agent Reasoning Steps")
             st.write(result.get("raw_steps"))

@@ -6,6 +6,21 @@ import re
 
 DB_PATH = "database/sales.db"
 
+FORBIDDEN_KEYWORDS = [
+    "insert",
+    "update",
+    "delete",
+    "drop",
+    "alter",
+    "truncate",
+    "create",
+    "replace"
+]
+
+def is_safe_sql(sql: str):
+    lower_sql = sql.lower()
+    return not any(keyword in lower_sql for keyword in FORBIDDEN_KEYWORDS) 
+
 # ---------- Tool 1: List Tables ----------
 @tool
 def list_tables(input:str) -> str:
@@ -76,14 +91,60 @@ def describe_table(table_name: str) -> str:
 
 #     return str(result)
 
+# @tool
+# def execute_sql(query: str) -> str:
+#     """Executes a read-only SQL query and returns structured results."""
+
+#     # 🔥 Remove markdown code fences if present
+#     query = re.sub(r"```sql", "", query, flags=re.IGNORECASE)
+#     query = re.sub(r"```", "", query)
+#     query = query.strip()
+
+#     conn = sqlite3.connect(DB_PATH)
+
+#     try:
+#         df = pd.read_sql_query(query, conn)
+
+#         result = {
+#             "sql": query,
+#             "columns": df.columns.tolist(),
+#             "data": df.to_dict(orient="records"),
+#             "row_count": len(df)
+#         }
+
+#         return str(result)
+
+#     except Exception as e:
+#         return str({"error": str(e)})
+
+#     finally:
+#         conn.close()
+
+def enforce_limit(sql: str, max_rows: int = 100):
+    if "limit" not in sql.lower():
+        sql = sql.strip().rstrip(";")
+        sql += f" LIMIT {max_rows}"
+    return sql
+
 @tool
-def execute_sql(query: str) -> str:
+def execute_sql(query: str):
     """Executes a read-only SQL query and returns structured results."""
 
     # 🔥 Remove markdown code fences if present
     query = re.sub(r"```sql", "", query, flags=re.IGNORECASE)
     query = re.sub(r"```", "", query)
     query = query.strip()
+
+    # 🔐 Block dangerous keywords
+    if not is_safe_sql(query):
+        return str({"error": "Only read-only SELECT queries are allowed."})
+
+    # 🔐 Must start with SELECT
+    if not query.lower().startswith("select"):
+        return str({"error": "Only SELECT queries are allowed."})
+
+    # 📏 Enforce row limit
+    query = enforce_limit(query)
 
     conn = sqlite3.connect(DB_PATH)
 
@@ -100,7 +161,11 @@ def execute_sql(query: str) -> str:
         return str(result)
 
     except Exception as e:
-        return str({"error": str(e)})
+        return str({
+            "error": "SQL execution failed.",
+            "details": str(e),
+            "sql": query
+        })
 
     finally:
         conn.close()
